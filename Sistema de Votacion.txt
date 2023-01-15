@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity ^0.8.13;
+
+//Sistema de Votación.
+contract Votacion {
+    //Mapping declara una variable de estado que
+    //almacena una estructura de datos `bool` para cada posible dirección.
+    mapping(address=>bool) public voters; //Pasaremos de address a bool.
+    //Creamos la estructura de la elección.
+    struct Choice {
+        uint id;          //id de la elección.
+        string name;      //Nombre de la elección.
+        uint votes;       //índice de la propuesta votada.
+    }
+    //Creamos la estructura de la campaña de votación.
+    struct Ballot{
+        uint id;             //id de la campaña.
+        string name;         //Nombre de la campaña.
+        Choice[] choices;    //Un array para las elecciones.
+        uint end;            //Para finalizar la campaña.
+    }
+    //Mapping declara una variable de estado que
+    //almacena una estructura de datos `Ballot` para cada posible dirección.
+    mapping(uint => Ballot) ballots;
+    uint nextBallotId;    //Variable para la siguiente votación.
+    //Dirección del admin (administrador, jefe) del sitema de votación.
+    address public admin;
+    //Mapping declara una variable de estado que
+    //almacena una estructura de datos para comprobar si ya se ha votado.
+    mapping(address => mapping(uint => bool))votes;
+
+    //Función para añadir votantes a la campaña de votación 
+    //sólo puede ser ejecutado por el admin (administrador).
+    function addVoters(address[] calldata _voters) external onlyAdmin(){
+        //Loop para añadir los votantes a la campaña de votación.
+        for(uint i = 0; i<_voters.length ;i++){
+            //Define los votantes y pasa el boleano a true.
+            voters[_voters[i]]=true;
+        }
+    }
+
+    //Función para crear la campaña de votación.
+    function createBallot(string memory name, string [] memory choices, uint offset )public onlyAdmin(){
+        //Definicion de la variable  id.
+        ballots[nextBallotId].id= nextBallotId;
+        //Definicion de la variable del nombre de la campaña de votación.
+        ballots[nextBallotId].name= name;
+        //Definicion de la variable del tiempo que dura la campaña.
+        ballots[nextBallotId].end = block.timestamp + offset;
+        //Loop para añadir la campaña de votación.
+        for(uint i = 0; i<choices.length; i ++){
+            ballots[nextBallotId].choices.push(Choice(i, choices[i],0));
+        }
+    }
+
+    //Para que solo el admin (administrador) pueda añadir votantes y crear campañas de votación.
+    modifier onlyAdmin(){
+        require(msg.sender == admin, "Solo el Administrador");
+        _;
+    }
+    //Función para votar
+    function vote(uint ballotId, uint choiceId)external{
+        //Para que solo los votantes pueden votar.
+        require(voters[msg.sender]==true, "Solo los votantes pueden votar");
+        //Para que los votantes puedan votar una sola vez.
+        require(votes[msg.sender][ballotId] == false, "Solo se puede votar una vez");
+        //Para que solo se pueda votar antes de finalizar la campaña de votacion.
+        require(block.timestamp < ballots[ballotId].end, "Votar antes de finalizar la campana");
+        //Cambia el bolleano de los votos a true.
+        votes[msg.sender][ballotId] = true;
+        //Ingresar los votos a la campaña de votación.
+        ballots[ballotId].choices[choiceId].votes++;
+    }
+
+    //Función que comprueba los votos de la campaña.
+    function results( uint ballotId) view external returns(Choice[]memory){
+        //Solo se puede comprobar una vez finalizada la campaña.
+        require(block.timestamp> ballots[ballotId].end, "No se puede ver los resultados antes de finalizar");
+        //Retorna la elección de la campaña de votación que se eligio.
+        return ballots[ballotId].choices;
+    }
+
+     //El admin (administrador) debe ser el que crea el smart contract.
+    constructor(){
+        admin = msg.sender;
+    }
+}
